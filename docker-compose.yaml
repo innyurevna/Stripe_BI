@@ -1,0 +1,64 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: hardpass
+      POSTGRES_DB: stripe
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: hardpass
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on: 
+      - postgres
+
+  webserver:
+    image: apache/airflow:2.3.0
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://myuser:hardpass@postgres:5432/stripe
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    ports:
+      - 8080:8080
+    command: bash -c "airflow webserver"
+
+  scheduler:
+    image: apache/airflow:2.3.0
+    restart: always
+    depends_on:
+      - webserver
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://myuser:hardpass@postgres:5432/stripe
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    command: bash -c "airflow scheduler"
+
+
+  init:
+    image: apache/airflow:2.3.0
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://myuser:hardpass@postgres:5432/stripe
+    command: bash -c "airflow db init && airflow users create -u admin -p admin -r Admin -e admin@admin.com -f admin -l admin"
+

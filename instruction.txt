@@ -1,0 +1,80 @@
+Absolutely, here is a basic example of a docker-compose file with Apache Airflow, PostgreSQL, and pgAdmin. 
+
+Please set your own passwords and paths as superuser (DB_SUPERUSER, DB_SUPERUSER_PASSWORD).
+
+ yaml
+version: '3'
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${DB_SUPERUSER}
+      POSTGRES_PASSWORD: ${DB_SUPERUSER_PASSWORD}
+      POSTGRES_DB: ${DB_APP_NAME}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${DB_SUPERUSER}
+      PGADMIN_DEFAULT_PASSWORD: ${DB_SUPERUSER_PASSWORD}
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on: 
+      - postgres
+
+  webserver:
+    image: puckel/docker-airflow:1.10.9
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=airflow
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    ports:
+      - 8080:8080
+    command: webserver
+
+  scheduler:
+    image: puckel/docker-airflow:1.10.9
+    restart: always
+    depends_on:
+      - webserver
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    environment:
+      - LOAD_EX=n
+      - EXECUTOR=Local
+      - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=airflow
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+    command: scheduler
+How to run it:
+1. Fill in the environment variables related to POSTGRES_USER, POSTGRES_PASSWORD and POSTGRES_DB.
+2. Run this file in a directory with a `dags` subdirectory (`./dags`) for the Airflow DAG files.
+3. Run the command `docker-compose up`.
+
+You can now access:
+- Airflow at `http://localhost:8080`
+- pgAdmin at `http://localhost:5050`.
+
+You may want to set the `FERNET_KEY` to your own generated key instead of the one provided here. You can generate one by running `openssl rand -base64 32` in your shell. 
+
+Remember, passwords and keys should be stored securely, and not in plaintext or in your source code directly. 
+
+This is a basic example, be aware that for production workloads, additional settings for data persistence, service configuration and secrets management might be required. 
+
+Moreover, newer versions of both Airflow and pgAdmin exist, so replace the image versions to use latest ones. Be aware that upgrading may require additional configuration changes.
+
+postgresql+psycopg2://username:password@host:port/database
