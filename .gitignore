@@ -160,4 +160,4 @@ cython_debug/
 #.idea/
 
 # Custom
-instructions.txt
+instruction.txt
